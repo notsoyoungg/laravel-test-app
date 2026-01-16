@@ -1,0 +1,116 @@
+version: "3.9"
+
+services:
+  composer:
+    image: composer:2
+    container_name: laravel-composer
+    working_dir: /laravel-test-app
+    volumes:
+      - .:/laravel-test-app
+      - vendor:/laravel-test-app/vendor
+    command: composer install
+    networks:
+      - laravel
+    restart: "no"
+
+  php-fpm:
+    build:
+      context: .
+      target: fpm
+    image: laravel-in-kubernetes:fpm-dev
+    container_name: laravel-fpm
+    depends_on:
+      - composer
+      - redis
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      REDIS_HOST: redis
+    volumes:
+      - .:/laravel-test-app
+      - vendor:/laravel-test-app/vendor
+      - storage:/laravel-test-app/storage
+      - bootstrap-cache:/laravel-test-app/bootstrap/cache
+    networks:
+      - laravel
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      target: nginx
+    image: laravel-in-kubernetes:nginx-dev
+    container_name: laravel-nginx
+    ports:
+      - "81:80"
+    depends_on:
+      - php-fpm
+    environment:
+      FPM_HOST: php-fpm:9000
+    volumes:
+      - .:/laravel-test-app
+    networks:
+      - laravel
+    restart: unless-stopped
+
+  horizon:
+    build:
+      context: .
+      target: cli
+    image: laravel-in-kubernetes:cli-dev
+    container_name: laravel-horizon
+    command: php artisan horizon
+    depends_on:
+      - redis
+    environment:
+      APP_ENV: local
+      REDIS_HOST: redis
+    volumes:
+      - .:/laravel-test-app
+      - vendor:/laravel-test-app/vendor
+      - storage:/laravel-test-app/storage
+    networks:
+      - laravel
+    restart: unless-stopped
+
+  cron:
+    build:
+      context: .
+      target: cron
+    image: laravel-in-kubernetes:cron-dev
+    container_name: laravel-cron
+    depends_on:
+      - php-fpm
+    environment:
+      APP_ENV: local
+      REDIS_HOST: redis
+    volumes:
+      - .:/laravel-test-app
+      - vendor:/laravel-test-app/vendor
+      - storage:/laravel-test-app/storage
+    networks:
+      - laravel
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: laravel-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - laravel
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+networks:
+  laravel:
+    driver: bridge
+
+volumes:
+  vendor:
+  storage:
+  bootstrap-cache:
