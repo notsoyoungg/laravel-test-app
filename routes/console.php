@@ -8,4 +8,4 @@ use App\Jobs\Users\DeleteOldUsersJob;
 |--------------------------------------------------------------------------
 */
 
-Schedule::job(new DeleteOldUsersJob(1))->everyTenSeconds();
+Schedule::job(new DeleteOldUsersJob(1))->everyMinute();

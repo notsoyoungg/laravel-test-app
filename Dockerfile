@@ -82,8 +82,15 @@ WORKDIR /laravel-test-app
 
 COPY --from=app_build /laravel-test-app .
 
-RUN chown -R www-data:www-data storage bootstrap/cache \
- && chmod -R 775 storage bootstrap/cache
+# Создаём папку storage/app/public на всякий случай
+RUN mkdir -p storage/app/public \
+    && chown -R www-data:www-data storage bootstrap/cache public \
+    && chmod -R 775 storage bootstrap/cache public \
+    && rm -f public/storage \
+    && ln -s ../storage/app/public public/storage
+
+#RUN chown -R www-data:www-data storage bootstrap/cache \
+# && chmod -R 775 storage bootstrap/cache
 
 USER www-data
 
@@ -105,11 +112,9 @@ CMD ["php", "artisan"]
 # =========================
 FROM cli AS cron
 
-USER root
-
-RUN echo "* * * * * cd /laravel-test-app && php artisan schedule:run >> /proc/1/fd/1 2>&1" > /etc/crontabs/www-data
-
-USER www-data
+RUN touch laravel.cron && \
+    echo "* * * * * cd /laravel-test-app && php artisan schedule:run" >> laravel.cron && \
+    crontab laravel.cron
 
 CMD ["crond", "-f", "-l", "2"]
 
