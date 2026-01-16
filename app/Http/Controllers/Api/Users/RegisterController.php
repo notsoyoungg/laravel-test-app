@@ -12,6 +12,8 @@ class RegisterController
 {
     /**
      * UserController constructor
+     *
+     * @param UserService $service
      */
     public function __construct(
         private readonly UserService $service
